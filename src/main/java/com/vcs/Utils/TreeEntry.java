@@ -16,6 +16,7 @@ import com.vcs.Commands.CreateTree;
  * Represents an entry in a tree object, which can be a file or a directory.
  */
 public class TreeEntry {
+<<<<<<< HEAD
 
     public enum EntryType {
         BLOB, TREE
@@ -42,6 +43,12 @@ public class TreeEntry {
     // // You'd need to compute the blob hash here
     // this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
     // }
+=======
+    private String mode; // File mode (e.g., 100644 for regular file, 040000 for directory)
+    private String type; // Object type (blob or tree)
+    private String hash; // SHA-1 hash of the object
+    private String name; // Name of the file or directory
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
 
     /**
      * Constructs a TreeEntry for a file or blob.
@@ -61,7 +68,11 @@ public class TreeEntry {
         try {
             if (file.isDirectory()) {
                 this.mode = "040000"; // Directory
+<<<<<<< HEAD
                 this.type = EntryType.TREE;
+=======
+                this.type = "tree";
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
 
                 this.hash = CreateTree.createTreeForDirectory(file.toPath());
             } else {
@@ -70,7 +81,11 @@ public class TreeEntry {
 
                 // Regular file mode
                 this.mode = determineFileMode(permissions);
+<<<<<<< HEAD
                 this.type = EntryType.BLOB;
+=======
+                this.type = "blob";
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
 
                 // Additional check to ensure file is readable
                 if (!file.canRead()) {
@@ -83,6 +98,7 @@ public class TreeEntry {
             // More detailed logging and error handling
 
             // Fallback strategy
+<<<<<<< HEAD
             // if (file.isDirectory()) {
             // this.mode = "040000";
             // this.type = "tree";
@@ -92,6 +108,17 @@ public class TreeEntry {
             // this.type = "blob";
             // this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
             // }
+=======
+            if (file.isDirectory()) {
+                this.mode = "040000";
+                this.type = "tree";
+                this.hash = CreateTree.createTreeForDirectory(file.toPath());
+            } else {
+                this.mode = "100644"; // Default mode for regular file
+                this.type = "blob";
+                this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+            }
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
         }
     }
 

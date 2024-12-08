@@ -152,6 +152,7 @@ public class CreateTree implements Runnable {
             throws IOException, NoSuchAlgorithmException {
         List<TreeEntry> entries = new ArrayList<>();
 
+<<<<<<< HEAD
         // Group staged entries by their top-level directory
         Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
                 .filter(entry -> !isHiddenPath(entry.getKey()))
@@ -205,6 +206,34 @@ public class CreateTree implements Runnable {
                 for (Map.Entry<String, String> entry : dirEntries) {
                     Path filePath = Paths.get(entry.getKey());
                     entries.add(new TreeEntry(filePath.toFile()));
+=======
+        // Group staged entries by their directory structure
+        Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
+                .filter(entry -> !isHiddenPath(entry.getKey()))
+                .collect(Collectors.groupingBy(
+                        entry -> getParentDirectory(entry.getKey()),
+                        Collectors.toList()));
+
+        // Process each directory group
+        for (Map.Entry<String, List<Map.Entry<String, String>>> dirGroup : groupedEntries.entrySet()) {
+            String dirPath = dirGroup.getKey();
+            List<Map.Entry<String, String>> dirEntries = dirGroup.getValue();
+
+            // If it's a non-empty directory group
+            if (!dirEntries.isEmpty()) {
+                for (Map.Entry<String, String> entry : dirEntries) {
+                    Path filePath = Paths.get(entry.getKey());
+                    String fileName = filePath.getFileName().toString();
+                    String fileHash = entry.getValue();
+
+                    System.out.println("fileName: " + fileName);
+
+                    // Use Paths.get() to create the file path correctly
+                    Path fullFilePath = Paths.get(dirPath, fileName);
+
+                    // Create TreeEntry with the file/directory
+                    entries.add(new TreeEntry(fullFilePath.toFile()));
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
                 }
             }
         }
@@ -213,6 +242,7 @@ public class CreateTree implements Runnable {
     }
 
     /**
+<<<<<<< HEAD
      * Get the top-level directory of a path.
      * 
      * @param path Path to get top-level directory for
@@ -246,6 +276,13 @@ public class CreateTree implements Runnable {
      * @param path Path to check
      * @return true if path is hidden, false otherwise
      */
+=======
+     * Check if a path is hidden
+     * 
+     * @param path Path to check
+     * @return true if path is hidden, false otherwise
+     */
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
     private static boolean isHiddenPath(String path) {
         return path.contains("/.") || // Unix-like hidden files/directories
                 path.contains("\\.") || // Windows hidden files/directories
@@ -308,5 +345,5 @@ public class CreateTree implements Runnable {
             deflater.finish();
         }
     }
-
+    // Existing computeTreeContent and writeTreeObject methods remain the same...
 }

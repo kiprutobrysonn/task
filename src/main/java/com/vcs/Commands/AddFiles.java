@@ -15,7 +15,11 @@ import picocli.CommandLine.Parameters;
 @Command(name = "add", description = "Add files to the index")
 public class AddFiles implements Runnable {
     StagingArea stagingArea = new StagingArea();
+<<<<<<< HEAD
     IgnoreManager ignore = new IgnoreManager();
+=======
+
+>>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
     @Parameters(description = "Files to add to the index")
     private String[] fileNames;
 
