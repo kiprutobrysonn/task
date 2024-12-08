@@ -3,8 +3,10 @@ package com.vcs.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Set;
 
 import com.vcs.Commands.CreateBlob;
@@ -14,33 +16,76 @@ import com.vcs.Commands.CreateTree;
  * Represents an entry in a tree object, which can be a file or a directory.
  */
 public class TreeEntry {
-    private final String mode; // File mode (e.g., 100644 for regular file, 040000 for directory)
-    private final String type; // Object type (blob or tree)
-    private final String hash; // SHA-1 hash of the object
-    private final String name; // Name of the file or directory
+    private String mode; // File mode (e.g., 100644 for regular file, 040000 for directory)
+    private String type; // Object type (blob or tree)
+    private String hash; // SHA-1 hash of the object
+    private String name; // Name of the file or directory
 
     /**
      * Constructs a TreeEntry for a file or blob.
      * 
      * @param file The file to create a tree entry for
-     * @throws IOException              If there's an error reading file permissions
+     * @throws IOException              If there's an error reading file
      * @throws NoSuchAlgorithmException If hash computation fails
      */
     public TreeEntry(File file) throws IOException, NoSuchAlgorithmException {
         this.name = file.getName();
 
-        // Determine file mode based on file permissions
-        Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file.toPath());
+        // Check if file/directory exists before processing
+        if (!file.exists()) {
+            throw new IOException("File or directory does not exist: " + file.getPath());
+        }
 
-        if (file.isDirectory()) {
-            this.mode = "040000"; // Directory
-            this.type = "tree";
-            this.hash = CreateTree.hashTree(file);
-        } else {
-            // Regular file mode
-            this.mode = determineFileMode(permissions);
-            this.type = "blob";
-            this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+        try {
+            if (file.isDirectory()) {
+                this.mode = "040000"; // Directory
+                this.type = "tree";
+
+                this.hash = CreateTree.createTreeForDirectory(file.toPath());
+            } else {
+                // Safely read file permissions
+                Set<PosixFilePermission> permissions = getFilePermissions(file.toPath());
+
+                // Regular file mode
+                this.mode = determineFileMode(permissions);
+                this.type = "blob";
+
+                // Additional check to ensure file is readable
+                if (!file.canRead()) {
+                    throw new IOException("Cannot read file: " + file.getPath());
+                }
+
+                this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+            }
+        } catch (SecurityException | IOException e) {
+            // More detailed logging and error handling
+
+            // Fallback strategy
+            if (file.isDirectory()) {
+                this.mode = "040000";
+                this.type = "tree";
+                this.hash = CreateTree.createTreeForDirectory(file.toPath());
+            } else {
+                this.mode = "100644"; // Default mode for regular file
+                this.type = "blob";
+                this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+            }
+        }
+    }
+
+    /**
+     * Safely get file permissions, falling back to default if not possible
+     * 
+     * @param path Path to the file
+     * @return Set of file permissions
+     */
+    private Set<PosixFilePermission> getFilePermissions(Path path) {
+        try {
+            // First try POSIX permissions
+            return Files.getPosixFilePermissions(path);
+        } catch (IOException | SecurityException e) {
+            // If POSIX permissions can't be read, return an empty set
+            return Collections.emptySet();
         }
     }
 
@@ -58,7 +103,6 @@ public class TreeEntry {
         return isExecutable ? "100755" : "100644";
     }
 
-    //
     /**
      * Converts the tree entry to its git-style raw representation.
      * 

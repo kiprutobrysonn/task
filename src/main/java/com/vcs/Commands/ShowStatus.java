@@ -7,7 +7,7 @@ import picocli.CommandLine.Command;
 @Command(name = "status", description = "Show the working tree status", mixinStandardHelpOptions = true)
 public class ShowStatus implements Runnable {
 
-    private StagingArea stagingArea = StagingArea.getInstanceArea();
+    private StagingArea stagingArea = new StagingArea();
 
     @Override
     public void run() {

@@ -1,83 +1,116 @@
 package com.vcs.Utils;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import com.vcs.Commands.CreateBlob;
+import com.vcs.Commands.CreateTree;
 
-// lets make it static
 public class StagingArea {
-
     private static final String OBJECTS_DIR = ".vcs/objects";
-    private Map<String, String> stagedFiles;
-
-    private String INDEX_FILE = ".vcs/index";
+    private Map<String, String> stagedEntries;
+    private static final String INDEX_FILE = ".vcs/index";
+    private Path projectRoot;
 
     public StagingArea() {
-        this.stagedFiles = new HashMap<>();
+        this.stagedEntries = new HashMap<>();
+        this.projectRoot = Paths.get(System.getProperty("user.dir"));
         loadIndex();
     }
 
-    public static StagingArea getInstanceArea() {
-        return new StagingArea();
-    }
-
-    public void add(Path filePath) throws IOException, NoSuchAlgorithmException {
-        // Validate file exists and is readable
-        if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
-            throw new IOException("Cannot read file: " + filePath);
+    public void add(Path path) throws IOException, NoSuchAlgorithmException {
+        // Validate file/directory exists and is readable
+        if (!Files.exists(path) || !Files.isReadable(path)) {
+            throw new IOException("Cannot read path: " + path);
         }
 
-        // Differentiate between a file and dir
-        if (Files.isDirectory(filePath)) {
-            Files.walk(filePath).filter(arg0 -> {
-                try {
-                    return Files.isHidden(arg0);
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-                return false;
-            }).filter(Files::isRegularFile).forEach(file -> {
-                try {
-                    addFile(file);
-                } catch (IOException | NoSuchAlgorithmException e) {
-                    e.printStackTrace();
-                }
-            });
-        } else {
-            addFile(filePath);
-        }
-    }
+        // Normalize the path to remove any redundant elements
+        path = path.toAbsolutePath().normalize();
 
-    private void addFile(Path filePath) throws IOException, NoSuchAlgorithmException {
-        // Calculate file hash
-        byte[] bytes = Files.readAllBytes(filePath);
-        String fileHash = CreateBlob.hashObject(bytes, true);
+        // Use Files.walkFileTree for more robust and efficient directory traversal
+        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                // Skip hidden directories
+                if (isHiddenPath(dir.toString())) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
 
-        // Add to staged files
-        stagedFiles.put(filePath.toString(), fileHash);
+                try {
+                    // Create a tree object for the directory
+                    String treeHash = CreateTree.createTreeForDirectory(dir);
+
+                    // Add the directory to staged entries using relative path to project root
+                    Path relativePath = projectRoot.relativize(dir.toAbsolutePath());
+                    stagedEntries.put(relativePath.toString(), treeHash);
+                } catch (NoSuchAlgorithmException e) {
+                    // Log error but continue traversal
+                    System.err.println("Error processing directory " + dir + ": " + e.getMessage());
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                // Skip hidden files
+                if (isHiddenPath(file.toString())) {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                try {
+                    // Calculate file hash
+                    byte[] bytes = Files.readAllBytes(file);
+                    String fileHash = CreateBlob.hashObject(bytes, true);
+
+                    // Add to staged entries using relative path to project root
+                    Path relativePath = projectRoot.relativize(file.toAbsolutePath());
+                    stagedEntries.put(relativePath.toString(), fileHash);
+                } catch (NoSuchAlgorithmException e) {
+                    // Log error but continue traversal
+                    System.err.println("Error processing file " + file + ": " + e.getMessage());
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                // Log any access errors but continue traversal
+                System.err.println("Failed to access " + file + ": " + exc.getMessage());
+                return FileVisitResult.CONTINUE;
+            }
+        });
 
         // Update index file
         saveIndex();
     }
 
+    // Helper method to check if a path is hidden
+    private boolean isHiddenPath(String path) {
+        return path.contains("/.") || // Unix-like hidden files/directories
+                path.contains("\\.") || // Windows hidden files/directories
+                path.startsWith(".") ||
+                path.contains("/.");
+    }
+
     // Remove a file from staging area
     public void remove(Path filePath) throws IOException {
-        if (stagedFiles.remove(filePath.toString()) != null) {
+        if (stagedEntries.remove(filePath.toString()) != null) {
             saveIndex();
         }
     }
 
     // Clear staging area
     public void clear() {
-        stagedFiles.clear();
+        stagedEntries.clear();
         try {
             saveIndex();
         } catch (IOException e) {
@@ -90,14 +123,14 @@ public class StagingArea {
         try {
             Path indexPath = Paths.get(INDEX_FILE);
             if (Files.exists(indexPath)) {
-                stagedFiles = new HashMap<>();
+                stagedEntries = new HashMap<>();
                 Files.lines(indexPath).forEach(line -> {
                     String[] parts = line.split(":");
-                    stagedFiles.put(parts[0], parts[1]);
+                    stagedEntries.put(parts[0], parts[1]);
                 });
             }
         } catch (IOException e) {
-            stagedFiles = new HashMap<>();
+            stagedEntries = new HashMap<>();
         }
     }
 
@@ -105,13 +138,13 @@ public class StagingArea {
         Path indexPath = Paths.get(INDEX_FILE);
         Files.createDirectories(indexPath.getParent());
 
-        Stream<String> indexEntries = stagedFiles.entrySet().stream()
+        Stream<String> indexEntries = stagedEntries.entrySet().stream()
                 .map(entry -> entry.getKey() + ":" + entry.getValue());
 
         Files.write(indexPath, (Iterable<String>) indexEntries::iterator);
     }
 
     public Map<String, String> getStagedFiles() {
-        return new HashMap<>(stagedFiles);
+        return new HashMap<>(stagedEntries);
     }
 }

@@ -12,7 +12,7 @@ import picocli.CommandLine.Parameters;
 
 @Command(name = "add", description = "Add files to the index")
 public class AddFiles implements Runnable {
-    StagingArea stagingArea = StagingArea.getInstanceArea();
+    StagingArea stagingArea = new StagingArea();
 
     @Parameters(description = "Files to add to the index")
     private String[] fileNames;

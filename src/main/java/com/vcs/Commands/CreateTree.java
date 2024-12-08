@@ -4,24 +4,29 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.DeflaterOutputStream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.vcs.Utils.StagingArea;
 import com.vcs.Utils.TreeEntry;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
-@Command(name = "hash-tree", description = "Creates a new tree object", mixinStandardHelpOptions = true)
+@Command(name = "write-tree", description = "Creates a new tree object from staged files", mixinStandardHelpOptions = true)
 public class CreateTree implements Runnable {
     private static final byte[] OBJECT_TYPE_TREE = "tree".getBytes();
     private static final byte[] SPACE = " ".getBytes();
@@ -29,36 +34,32 @@ public class CreateTree implements Runnable {
     private static final Logger LOGGER = LogManager.getLogger(CreateTree.class);
 
     @Option(names = { "-w", "--write" }, description = "Writes the tree to the object store")
-    private static boolean write = false;
-
-    @Parameters(index = "0", description = "Directory to hash into a tree object")
-    private File directory;
+    private boolean write = true;
 
     @Override
     public void run() {
         try {
-            String treeHash = hashTree(directory);
+            String treeHash = writeTreeFromStagedFiles();
             LOGGER.info("Tree object hash: {}", treeHash);
-
-            if (write) {
-                LOGGER.info("Tree object created in the repository");
-            }
         } catch (Exception e) {
-            LOGGER.error("Error processing directory", e);
+            LOGGER.error("Error creating tree object", e);
         }
     }
 
     /**
-     * Computes the SHA-1 hash of the tree object and optionally writes it.
+     * Creates a tree object from staged files.
      * 
-     * @param directory Root directory to hash
      * @return SHA-1 hash of the tree object
      * @throws IOException              If an I/O error occurs
      * @throws NoSuchAlgorithmException If hash computation fails
      */
-    public static String hashTree(File directory) throws IOException, NoSuchAlgorithmException {
-        // Recursively collect tree entries
-        List<TreeEntry> entries = collectTreeEntries(directory);
+    public static String writeTreeFromStagedFiles() throws IOException, NoSuchAlgorithmException {
+        // Get staged entries from the staging area
+        StagingArea stagingArea = new StagingArea();
+        Map<String, String> stagedEntries = stagingArea.getStagedFiles();
+
+        // Collect tree entries from staged files and directories
+        List<TreeEntry> entries = collectTreeEntriesFromStaged(stagedEntries);
 
         // Sort entries lexicographically by name
         entries.sort(Comparator.comparing(TreeEntry::getName));
@@ -77,47 +78,143 @@ public class CreateTree implements Runnable {
         byte[] hashedBytes = hash.digest();
         String hashedString = HexFormat.of().formatHex(hashedBytes);
 
-        // Write to object store if write flag is true
-        if (write) {
-            writeTreeObject(hashedString, treeContent);
-        }
+        // Write to object store
+        writeTreeObject(hashedString, treeContent);
 
         return hashedString;
     }
 
     /**
-     * Collects tree entries from a directory recursively.
+     * Creates a tree object for a specific directory.
      * 
-     * @param directory Root directory
+     * @param dirPath Path to the directory
+     * @return SHA-1 hash of the tree object
+     * @throws IOException              If an I/O error occurs
+     * @throws NoSuchAlgorithmException If hash computation fails
+     */
+    public static String createTreeForDirectory(Path dirPath) throws IOException, NoSuchAlgorithmException {
+        // Collect all files and subdirectories in this directory
+        List<TreeEntry> entries = new ArrayList<>();
+
+        try (Stream<Path> stream = Files.list(dirPath)) {
+            for (Path path : (Iterable<Path>) stream::iterator) {
+                // Skip hidden files and directories
+                if (isHiddenPath(path.toString())) {
+                    continue;
+                }
+
+                String name = path.getFileName().toString();
+                if (Files.isDirectory(path)) {
+                    // Recursive tree creation for subdirectories
+                    String subTreeHash = createTreeForDirectory(path);
+                    entries.add(new TreeEntry(new File(dirPath.toFile(), name)));
+                } else if (Files.isRegularFile(path)) {
+                    // For files, create a blob
+                    byte[] bytes = Files.readAllBytes(path);
+                    String fileHash = CreateBlob.hashObject(bytes, true);
+                    entries.add(new TreeEntry(new File(dirPath.toFile(), name)));
+                }
+            }
+        }
+
+        // Sort entries lexicographically
+        entries.sort(Comparator.comparing(TreeEntry::getName));
+
+        // Compute raw tree content
+        byte[] treeContent = computeTreeContent(entries);
+
+        // Compute hash
+        MessageDigest hash = MessageDigest.getInstance("SHA-1");
+        hash.update(OBJECT_TYPE_TREE);
+        hash.update(SPACE);
+        hash.update(String.valueOf(treeContent.length).getBytes());
+        hash.update(NULL);
+        hash.update(treeContent);
+
+        byte[] hashedBytes = hash.digest();
+        String hashedString = HexFormat.of().formatHex(hashedBytes);
+
+        // Write tree object to object store
+        writeTreeObject(hashedString, treeContent);
+
+        return hashedString;
+    }
+
+    /**
+     * Collects tree entries from staged files and directories.
+     * 
+     * @param stagedEntries Map of staged entries
      * @return List of tree entries
      * @throws IOException              If an I/O error occurs
      * @throws NoSuchAlgorithmException If hash computation fails
      */
-    private static List<TreeEntry> collectTreeEntries(File directory)
+    private static List<TreeEntry> collectTreeEntriesFromStaged(Map<String, String> stagedEntries)
             throws IOException, NoSuchAlgorithmException {
         List<TreeEntry> entries = new ArrayList<>();
-        File[] files = directory.listFiles();
 
-        if (files == null)
-            return entries;
+        // Group staged entries by their directory structure
+        Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
+                .filter(entry -> !isHiddenPath(entry.getKey()))
+                .collect(Collectors.groupingBy(
+                        entry -> getParentDirectory(entry.getKey()),
+                        Collectors.toList()));
 
-        for (File file : files) {
-            // Skip .vcs and hidden directories
-            if (file.isHidden() || file.getName().startsWith("."))
-                continue;
+        // Process each directory group
+        for (Map.Entry<String, List<Map.Entry<String, String>>> dirGroup : groupedEntries.entrySet()) {
+            String dirPath = dirGroup.getKey();
+            List<Map.Entry<String, String>> dirEntries = dirGroup.getValue();
 
-            entries.add(new TreeEntry(file));
+            // If it's a non-empty directory group
+            if (!dirEntries.isEmpty()) {
+                for (Map.Entry<String, String> entry : dirEntries) {
+                    Path filePath = Paths.get(entry.getKey());
+                    String fileName = filePath.getFileName().toString();
+                    String fileHash = entry.getValue();
+
+                    System.out.println("fileName: " + fileName);
+
+                    // Use Paths.get() to create the file path correctly
+                    Path fullFilePath = Paths.get(dirPath, fileName);
+
+                    // Create TreeEntry with the file/directory
+                    entries.add(new TreeEntry(fullFilePath.toFile()));
+                }
+            }
         }
 
         return entries;
     }
 
     /**
-     * Computes the raw bytes for a tree object.
+     * Check if a path is hidden
      * 
-     * @param entries Sorted list of tree entries
-     * @return Raw bytes of the tree object
+     * @param path Path to check
+     * @return true if path is hidden, false otherwise
      */
+    private static boolean isHiddenPath(String path) {
+        return path.contains("/.") || // Unix-like hidden files/directories
+                path.contains("\\.") || // Windows hidden files/directories
+                path.startsWith(".") ||
+                path.contains("/.");
+    }
+
+    /**
+     * Get the parent directory of a path
+     * 
+     * @param path Path to get parent directory for
+     * @return Parent directory path
+     */
+    private static String getParentDirectory(String path) {
+
+        // Remove leading slash if present
+        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+
+        int lastSlash = normalizedPath.lastIndexOf('/');
+        System.out.println("lastSlash: " + normalizedPath);
+
+        return lastSlash > 0 ? normalizedPath.substring(0, lastSlash) : "";
+    }
+
     private static byte[] computeTreeContent(List<TreeEntry> entries)
             throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -156,5 +253,5 @@ public class CreateTree implements Runnable {
             deflater.finish();
         }
     }
-
+    // Existing computeTreeContent and writeTreeObject methods remain the same...
 }
