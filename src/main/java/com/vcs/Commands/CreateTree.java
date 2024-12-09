@@ -152,37 +152,92 @@ public class CreateTree implements Runnable {
             throws IOException, NoSuchAlgorithmException {
         List<TreeEntry> entries = new ArrayList<>();
 
-        // Group staged entries by their directory structure
+        // Group staged entries by their top-level directory
         Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
                 .filter(entry -> !isHiddenPath(entry.getKey()))
                 .collect(Collectors.groupingBy(
-                        entry -> getParentDirectory(entry.getKey()),
+                        entry -> getTopLevelDirectory(entry.getKey()),
                         Collectors.toList()));
 
-        // Process each directory group
+        // Process each top-level directory group
         for (Map.Entry<String, List<Map.Entry<String, String>>> dirGroup : groupedEntries.entrySet()) {
-            String dirPath = dirGroup.getKey();
+            String topLevelDir = dirGroup.getKey();
             List<Map.Entry<String, String>> dirEntries = dirGroup.getValue();
 
-            // If it's a non-empty directory group
-            if (!dirEntries.isEmpty()) {
+            // If it's a directory with multiple entries
+            if (dirEntries.size() > 1 || hasSubdirectories(dirEntries)) {
+                // Create a subtree for this directory
+                List<TreeEntry> subEntries = new ArrayList<>();
+
                 for (Map.Entry<String, String> entry : dirEntries) {
                     Path filePath = Paths.get(entry.getKey());
-                    String fileName = filePath.getFileName().toString();
-                    String fileHash = entry.getValue();
+                    String relativePath = topLevelDir.isEmpty() ? filePath.getFileName().toString()
+                            : filePath.toString().substring(topLevelDir.length() + 1);
 
-                    System.out.println("fileName: " + fileName);
+                    // Create TreeEntry with the file
+                    subEntries.add(new TreeEntry(filePath.toFile()));
+                }
 
-                    // Use Paths.get() to create the file path correctly
-                    Path fullFilePath = Paths.get(dirPath, fileName);
+                // Sort subtree entries
+                subEntries.sort(Comparator.comparing(TreeEntry::getName));
 
-                    // Create TreeEntry with the file/directory
-                    entries.add(new TreeEntry(fullFilePath.toFile()));
+                // Compute subtree content and hash
+                byte[] subTreeContent = computeTreeContent(subEntries);
+                MessageDigest hash = MessageDigest.getInstance("SHA-1");
+                hash.update(OBJECT_TYPE_TREE);
+                hash.update(SPACE);
+                hash.update(String.valueOf(subTreeContent.length).getBytes());
+                hash.update(NULL);
+                hash.update(subTreeContent);
+                byte[] hashedBytes = hash.digest();
+                String subTreeHash = HexFormat.of().formatHex(hashedBytes);
+
+                // Write subtree to object store
+                writeTreeObject(subTreeHash, subTreeContent);
+
+                // Add subtree to main tree entries
+                entries.add(new TreeEntry(
+                        new File(topLevelDir),
+                        TreeEntry.EntryType.TREE,
+                        subTreeHash));
+            } else {
+                // For single file or root-level files
+                for (Map.Entry<String, String> entry : dirEntries) {
+                    Path filePath = Paths.get(entry.getKey());
+                    entries.add(new TreeEntry(filePath.toFile()));
                 }
             }
         }
 
         return entries;
+    }
+
+    /**
+     * Get the top-level directory of a path.
+     * 
+     * @param path Path to get top-level directory for
+     * @return Top-level directory path
+     */
+    private static String getTopLevelDirectory(String path) {
+        // Remove leading slash if present
+        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+
+        // Find the first slash
+        int firstSlash = normalizedPath.indexOf('/');
+
+        // If no slash, it's a root-level file
+        return firstSlash > 0 ? normalizedPath.substring(0, firstSlash) : "";
+    }
+
+    /**
+     * Check if the entries contain subdirectories.
+     * 
+     * @param entries List of entries to check
+     * @return true if entries contain subdirectories, false otherwise
+     */
+    private static boolean hasSubdirectories(List<Map.Entry<String, String>> entries) {
+        return entries.stream()
+                .anyMatch(entry -> entry.getKey().contains("/"));
     }
 
     /**
@@ -253,5 +308,5 @@ public class CreateTree implements Runnable {
             deflater.finish();
         }
     }
-    // Existing computeTreeContent and writeTreeObject methods remain the same...
+
 }

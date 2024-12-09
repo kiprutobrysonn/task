@@ -1,7 +1,9 @@
 package com.vcs.Commands;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -44,15 +46,33 @@ public class CommitTree implements Runnable {
 
     // Update HEAD reference
     private static void updateHEAD(String commitHash) throws IOException {
-        Path headPath = Paths.get(HEAD_FILE);
+        String branchName = getCurrentBranchName();
+        Path headPath = Paths.get(".vcs/refs/heads/" + branchName);
+
+        // Read the branch thats on main
+
         Files.createDirectories(headPath.getParent());
         Files.writeString(headPath, commitHash);
     }
 
+    public static String getCurrentBranchName() throws IOException {
+        Path gitHeadPath = Paths.get(".vcs", "HEAD");
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(gitHeadPath.toFile()))) {
+            String headContent = reader.readLine();
+
+            if (headContent != null && headContent.startsWith("ref: refs/heads/")) {
+                return headContent.substring("ref: refs/heads/".length());
+            }
+
+            return null;
+        }
+    }
+
     public static void commitTreeCommand(String tree_hash, String parent_commit_hash,
             String message) {
-        final String author = "test author";
-        Commit commit = new Commit(author, author, tree_hash, parent_commit_hash, LocalDateTime.now(), message);
+        final String author = "bryce@gmail.com";
+        Commit commit = new Commit(author, tree_hash, parent_commit_hash, LocalDateTime.now(), message);
 
         byte[] content = commit.toString().getBytes();
         int length = content.length;
@@ -65,20 +85,17 @@ public class CommitTree implements Runnable {
         try {
             com.google.common.io.Files.createParentDirs(blob_file);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
 
-        // BE aware - not closing the output streams properly would cause incorrect
-        // content
-        // written to file (should close deflaterOutputStream first, then
-        // FileOutputStream)
         try (OutputStream outputStream = new FileOutputStream(blob_file);
                 DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(outputStream)) {
             deflaterOutputStream.write(blob_bytes);
-            updateHEAD(tree_hash);
+            updateHEAD(hash);
             System.out.print(hash);
+            System.out.println("\n");
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
 
     }

@@ -51,22 +51,26 @@ public class InitialzieRepo implements Runnable {
 
     private void initRepo() {
 
-        // CHek first if the dir exits
+        // Check first if the dir exits
         if (new File(".vcs").exists()) {
             LOGGER.error("Repository already exists");
             return;
         }
         final File root = new File(".vcs");
         new File(root, "objects").mkdirs();
-        new File(root, "refs").mkdirs();
+        new File(root, "refs/heads").mkdirs();
         final File head = new File(root, "HEAD");
+        final File main = new File(root, "refs/heads/main");
 
         try {
+            main.createNewFile();
+
             head.createNewFile();
             Files.write(head.toPath(), "ref: refs/heads/main\n".getBytes());
             LOGGER.info("Initialized git directory");
+            LOGGER.info("Initialized main branch");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOGGER.warn("Error creating HEAD file");
         }
 
     }

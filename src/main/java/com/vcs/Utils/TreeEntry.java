@@ -16,10 +16,32 @@ import com.vcs.Commands.CreateTree;
  * Represents an entry in a tree object, which can be a file or a directory.
  */
 public class TreeEntry {
+
+    public enum EntryType {
+        BLOB, TREE
+    }
+
     private String mode; // File mode (e.g., 100644 for regular file, 040000 for directory)
-    private String type; // Object type (blob or tree)
+    private EntryType type; // Object type (blob or tree)
     private String hash; // SHA-1 hash of the object
     private String name; // Name of the file or directory
+
+    public TreeEntry(File file, EntryType type, String hash) {
+        this.name = file.getName();
+        this.type = type;
+        this.hash = hash;
+        this.mode = "040000"; // Directory mode
+    }
+
+    // Constructor for files with custom relative name
+    // public TreeEntry(File file, String relativeName) throws IOException,
+    // NoSuchAlgorithmException {
+    // this.name = relativeName;
+    // this.type = EntryType.BLOB;
+    // this.mode = Files.isExecutable(file.toPath()) ? "0100755" : "0100644";
+    // // You'd need to compute the blob hash here
+    // this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+    // }
 
     /**
      * Constructs a TreeEntry for a file or blob.
@@ -39,7 +61,7 @@ public class TreeEntry {
         try {
             if (file.isDirectory()) {
                 this.mode = "040000"; // Directory
-                this.type = "tree";
+                this.type = EntryType.TREE;
 
                 this.hash = CreateTree.createTreeForDirectory(file.toPath());
             } else {
@@ -48,7 +70,7 @@ public class TreeEntry {
 
                 // Regular file mode
                 this.mode = determineFileMode(permissions);
-                this.type = "blob";
+                this.type = EntryType.BLOB;
 
                 // Additional check to ensure file is readable
                 if (!file.canRead()) {
@@ -61,15 +83,15 @@ public class TreeEntry {
             // More detailed logging and error handling
 
             // Fallback strategy
-            if (file.isDirectory()) {
-                this.mode = "040000";
-                this.type = "tree";
-                this.hash = CreateTree.createTreeForDirectory(file.toPath());
-            } else {
-                this.mode = "100644"; // Default mode for regular file
-                this.type = "blob";
-                this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
-            }
+            // if (file.isDirectory()) {
+            // this.mode = "040000";
+            // this.type = "tree";
+            // this.hash = CreateTree.createTreeForDirectory(file.toPath());
+            // } else {
+            // this.mode = "100644"; // Default mode for regular file
+            // this.type = "blob";
+            // this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
+            // }
         }
     }
 
@@ -163,7 +185,7 @@ public class TreeEntry {
     }
 
     public String getType() {
-        return type;
+        return type.toString().toLowerCase();
     }
 
     public String getHash() {

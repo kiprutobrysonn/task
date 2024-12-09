@@ -8,10 +8,14 @@ import com.vcs.Commands.CatFile;
 import com.vcs.Commands.Commit;
 import com.vcs.Commands.CommitTree;
 import com.vcs.Commands.CreateBlob;
+import com.vcs.Commands.CreateBranch;
 import com.vcs.Commands.CreateTree;
+import com.vcs.Commands.DiffCommand;
 import com.vcs.Commands.InitialzieRepo;
+import com.vcs.Commands.LogHistory;
 import com.vcs.Commands.ReadTree;
 import com.vcs.Commands.ShowStatus;
+import com.vcs.Commands.SwitchBranch;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -24,7 +28,11 @@ import picocli.CommandLine.Command;
         CommitTree.class,
         ShowStatus.class,
         AddFiles.class,
-        Commit.class
+        Commit.class,
+        DiffCommand.class,
+        LogHistory.class,
+        CreateBranch.class,
+        SwitchBranch.class
 
 })
 public class Main implements Runnable {

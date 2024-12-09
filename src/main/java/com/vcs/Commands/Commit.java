@@ -1,6 +1,8 @@
 package com.vcs.Commands;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 
 import com.vcs.Utils.StagingArea;
@@ -47,8 +49,14 @@ public class Commit implements Runnable {
         // Create tree object from staged files
         String treeHash = CreateTree.writeTreeFromStagedFiles();
 
+        // Read the last hash commit from HEAD
+        String lastCommitHash = null;
+        if (Files.exists(Paths.get(".vcs/HEAD"))) {
+            lastCommitHash = new String(Files.readAllBytes(Paths.get(".vcs/HEAD"))).trim();
+        }
+
         // Hash and store commit object
-        CommitTree.commitTreeCommand(treeHash, null, commitMessage);
+        CommitTree.commitTreeCommand(treeHash, lastCommitHash, commitMessage);
     }
 
 }
