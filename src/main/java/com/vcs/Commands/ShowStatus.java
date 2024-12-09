@@ -24,7 +24,7 @@ public class ShowStatus implements Runnable {
         if (stagedFiles.isEmpty()) {
             System.out.println("  (no files staged)");
         } else {
-            stagedFiles.forEach((path, hash) -> System.out.println("  " + path + " (hash: " + hash + ")"));
+            stagedFiles.forEach((path, hash) -> System.out.println("  " + path));
         }
     }
 
