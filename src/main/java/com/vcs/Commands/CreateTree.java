@@ -152,8 +152,6 @@ public class CreateTree implements Runnable {
             throws IOException, NoSuchAlgorithmException {
         List<TreeEntry> entries = new ArrayList<>();
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         // Group staged entries by their top-level directory
         Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
                 .filter(entry -> !isHiddenPath(entry.getKey()))
@@ -207,69 +205,6 @@ public class CreateTree implements Runnable {
                 for (Map.Entry<String, String> entry : dirEntries) {
                     Path filePath = Paths.get(entry.getKey());
                     entries.add(new TreeEntry(filePath.toFile()));
-=======
-        // Group staged entries by their directory structure
-=======
-        // Group staged entries by their top-level directory
->>>>>>> de200ad (Added new files)
-        Map<String, List<Map.Entry<String, String>>> groupedEntries = stagedEntries.entrySet().stream()
-                .filter(entry -> !isHiddenPath(entry.getKey()))
-                .collect(Collectors.groupingBy(
-                        entry -> getTopLevelDirectory(entry.getKey()),
-                        Collectors.toList()));
-
-        // Process each top-level directory group
-        for (Map.Entry<String, List<Map.Entry<String, String>>> dirGroup : groupedEntries.entrySet()) {
-            String topLevelDir = dirGroup.getKey();
-            List<Map.Entry<String, String>> dirEntries = dirGroup.getValue();
-
-            // If it's a directory with multiple entries
-            if (dirEntries.size() > 1 || hasSubdirectories(dirEntries)) {
-                // Create a subtree for this directory
-                List<TreeEntry> subEntries = new ArrayList<>();
-
-                for (Map.Entry<String, String> entry : dirEntries) {
-                    Path filePath = Paths.get(entry.getKey());
-                    String relativePath = topLevelDir.isEmpty() ? filePath.getFileName().toString()
-                            : filePath.toString().substring(topLevelDir.length() + 1);
-
-                    // Create TreeEntry with the file
-                    subEntries.add(new TreeEntry(filePath.toFile()));
-                }
-
-                // Sort subtree entries
-                subEntries.sort(Comparator.comparing(TreeEntry::getName));
-
-<<<<<<< HEAD
-                    // Create TreeEntry with the file/directory
-                    entries.add(new TreeEntry(fullFilePath.toFile()));
->>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
-=======
-                // Compute subtree content and hash
-                byte[] subTreeContent = computeTreeContent(subEntries);
-                MessageDigest hash = MessageDigest.getInstance("SHA-1");
-                hash.update(OBJECT_TYPE_TREE);
-                hash.update(SPACE);
-                hash.update(String.valueOf(subTreeContent.length).getBytes());
-                hash.update(NULL);
-                hash.update(subTreeContent);
-                byte[] hashedBytes = hash.digest();
-                String subTreeHash = HexFormat.of().formatHex(hashedBytes);
-
-                // Write subtree to object store
-                writeTreeObject(subTreeHash, subTreeContent);
-
-                // Add subtree to main tree entries
-                entries.add(new TreeEntry(
-                        new File(topLevelDir),
-                        TreeEntry.EntryType.TREE,
-                        subTreeHash));
-            } else {
-                // For single file or root-level files
-                for (Map.Entry<String, String> entry : dirEntries) {
-                    Path filePath = Paths.get(entry.getKey());
-                    entries.add(new TreeEntry(filePath.toFile()));
->>>>>>> de200ad (Added new files)
                 }
             }
         }
@@ -278,10 +213,6 @@ public class CreateTree implements Runnable {
     }
 
     /**
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> de200ad (Added new files)
      * Get the top-level directory of a path.
      * 
      * @param path Path to get top-level directory for
@@ -315,13 +246,6 @@ public class CreateTree implements Runnable {
      * @param path Path to check
      * @return true if path is hidden, false otherwise
      */
-=======
-     * Check if a path is hidden
-     * 
-     * @param path Path to check
-     * @return true if path is hidden, false otherwise
-     */
->>>>>>> fc17812 (commit works and tree but now we have to work on grouping them to their dirs)
     private static boolean isHiddenPath(String path) {
         return path.contains("/.") || // Unix-like hidden files/directories
                 path.contains("\\.") || // Windows hidden files/directories
