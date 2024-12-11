@@ -12,6 +12,9 @@ import java.util.Set;
 import com.vcs.Commands.CreateBlob;
 import com.vcs.Commands.CreateTree;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Represents an entry in a tree object, which can be a file or a directory.
  */
@@ -24,6 +27,8 @@ public class TreeEntry {
     private String mode; // File mode (e.g., 100644 for regular file, 040000 for directory)
     private EntryType type; // Object type (blob or tree)
     private String hash; // SHA-1 hash of the object
+    @Getter
+    @Setter
     private String name; // Name of the file or directory
 
     public TreeEntry(File file, EntryType type, String hash) {
@@ -80,18 +85,7 @@ public class TreeEntry {
                 this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
             }
         } catch (SecurityException | IOException e) {
-            // More detailed logging and error handling
 
-            // Fallback strategy
-            // if (file.isDirectory()) {
-            // this.mode = "040000";
-            // this.type = "tree";
-            // this.hash = CreateTree.createTreeForDirectory(file.toPath());
-            // } else {
-            // this.mode = "100644"; // Default mode for regular file
-            // this.type = "blob";
-            // this.hash = CreateBlob.hashObject(Files.readAllBytes(file.toPath()), true);
-            // }
         }
     }
 

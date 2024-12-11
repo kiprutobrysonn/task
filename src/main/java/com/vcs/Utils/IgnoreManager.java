@@ -7,16 +7,54 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class IgnoreManager {
     private Set<PathMatcher> ignoredPatterns;
-    private Path rootPath = new File(".").toPath();
+    private Path rootPath;
 
+    /**
+     * Constructs an IgnoreManager that dynamically uses the current working
+     * directory
+     */
     public IgnoreManager() {
+        // Dynamically get the current working directory at runtime
+        this.rootPath = getCurrentWorkingDirectory();
         this.ignoredPatterns = new HashSet<>();
+        loadIgnoreFile();
+    }
+
+    /**
+     * Gets the current working directory dynamically
+     * 
+     * @return Path of the current working directory
+     */
+    private Path getCurrentWorkingDirectory() {
+        try {
+            // Use System property to get current working directory
+            String userDir = System.getProperty("user.dir");
+            return Paths.get(userDir).toAbsolutePath().normalize();
+        } catch (Exception e) {
+            // Fallback to default directory if unable to get user directory
+            System.err.println("Could not determine current working directory. Falling back to default.");
+            return Paths.get(".").toAbsolutePath().normalize();
+        }
+    }
+
+    /**
+     * Reloads ignore patterns using the current working directory
+     */
+    public void refreshIgnorePatterns() {
+        // Update root path to current working directory
+        this.rootPath = getCurrentWorkingDirectory();
+
+        // Clear existing patterns
+        this.ignoredPatterns.clear();
+
+        // Reload ignore file
         loadIgnoreFile();
     }
 
@@ -54,7 +92,18 @@ public class IgnoreManager {
      * @return true if the file should be ignored, false otherwise
      */
     public boolean isIgnored(Path file) {
-        // Ensure we have a relative path from the root
+        // Ensure we have an absolute, normalized path
+        file = file.toAbsolutePath().normalize();
+
+        // Refresh the root path to ensure it's current
+        rootPath = getCurrentWorkingDirectory();
+
+        // Check if the file is within the root path
+        if (!file.startsWith(rootPath)) {
+            return false;
+        }
+
+        // Create relative path from root
         Path relativePath = rootPath.relativize(file);
 
         // Check against all patterns
@@ -63,24 +112,22 @@ public class IgnoreManager {
     }
 
     /**
-     * Loads ignore patterns from the .vcsignore file.
-     * Reads from the .vcs directory relative to the root path.
+     * Loads ignore patterns from the .vcsignore file in the current working
+     * directory.
      */
     public void loadIgnoreFile() {
-        try {
-            File ignoreFile = new File(".vcsignore");
+        File ignoreFile = new File(rootPath.toFile(), ".vcsignore");
 
-            // If ignore file doesn't exist, just return
-            if (!ignoreFile.exists()) {
-                return;
-            }
+        // If ignore file doesn't exist, just return
+        if (!ignoreFile.exists()) {
+            System.out.println("No .vcsignore file found in " + rootPath);
+            return;
+        }
 
-            // Read patterns from the file
-            try (BufferedReader reader = new BufferedReader(new FileReader(ignoreFile))) {
-                reader.lines()
-                        .filter(line -> !line.trim().isEmpty() && !line.trim().startsWith("#"))
-                        .forEach(this::addIgnorePattern);
-            }
+        try (BufferedReader reader = new BufferedReader(new FileReader(ignoreFile))) {
+            reader.lines()
+                    .filter(line -> !line.trim().isEmpty() && !line.trim().startsWith("#"))
+                    .forEach(this::addIgnorePattern);
         } catch (IOException e) {
             // Log the error, but don't throw to allow continuing without ignore file
             System.err.println("Error reading .vcsignore file: " + e.getMessage());
@@ -103,5 +150,14 @@ public class IgnoreManager {
      */
     public void clearIgnorePatterns() {
         ignoredPatterns.clear();
+    }
+
+    /**
+     * Get the current root path
+     * 
+     * @return The current working directory path
+     */
+    public Path getRootPath() {
+        return getCurrentWorkingDirectory();
     }
 }

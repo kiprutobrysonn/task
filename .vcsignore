@@ -1,2 +1,37 @@
-src/
-.gitignore
+# Ignore specific file types
+*.log
+*.tmp
+*.bak
+
+# Ignore entire directories
+target/**
+bin/
+obj/
+debug/
+release/
+
+# Ignore specific directories only in the root
+/.gradle/
+/.idea/
+/.vscode/
+
+# Ignore system and application-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore configuration files with sensitive information
+*.env
+*.ini
+
+# Ignore build and dependency directories
+node_modules/
+dist/
+build/
+
+# Ignore backup and temporary files
+*~
+*.swp
+
+# Ignore specific files
+notes.txt
+config.json

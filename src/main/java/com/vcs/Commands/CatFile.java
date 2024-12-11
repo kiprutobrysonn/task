@@ -31,42 +31,46 @@ public class CatFile implements Runnable {
     @Override
     public void run() {
         try {
-            // Validate the hash
-            if (objectHash == null || objectHash.length() != 40) {
-                throw new IllegalArgumentException("Invalid object hash. Must be 40 characters long.");
-            }
-
-            // Construct the file path
-            String dirName = ".vcs/objects/" + objectHash.substring(0, 2);
-            String fileName = objectHash.substring(2);
-            File objectFile = new File(dirName, fileName);
-
-            if (!objectFile.exists()) {
-                LOGGER.error("Object file not found: {}", objectFile.getPath());
-                return;
-            }
-
-            // Read and decompress the file
-            byte[] decompressedContent = decompressFile(objectFile);
-
-            // Process the content
-            if (type) {
-                // Extract and print object type
-                String objectType = extractObjectType(decompressedContent);
-                System.out.println(objectType);
-            } else if (size) {
-                // Extract and print object size
-                int objectSize = extractObjectSize(decompressedContent);
-                System.out.println(objectSize);
-            } else if (print) {
-
-                byte[] content = extractContent(decompressedContent);
-                System.out.write(content);
-                System.out.println();
-            }
+            getDecompressedContent(objectHash);
 
         } catch (Exception e) {
             LOGGER.error("Error processing object", e);
+        }
+    }
+
+    public void getDecompressedContent(String obj) throws IOException {
+        // Validate the hash
+        if (obj == null || obj.length() != 40) {
+            throw new IllegalArgumentException("Invalid object hash. Must be 40 characters long.");
+        }
+
+        // Construct the file path
+        String dirName = ".vcs/objects/" + obj.substring(0, 2);
+        String fileName = obj.substring(2);
+        File objectFile = new File(dirName, fileName);
+
+        if (!objectFile.exists()) {
+            LOGGER.error("Object file not found: {}", objectFile.getPath());
+            return;
+        }
+
+        // Read and decompress the file
+        byte[] decompressedContent = decompressFile(objectFile);
+
+        // Process the content
+        if (type) {
+            // Extract and print object type
+            String objectType = extractObjectType(decompressedContent);
+            System.out.println(objectType);
+        } else if (size) {
+            // Extract and print object size
+            int objectSize = extractObjectSize(decompressedContent);
+            System.out.println(objectSize);
+        } else if (print) {
+
+            byte[] content = extractContent(decompressedContent);
+            System.out.write(content);
+            System.out.println();
         }
     }
 

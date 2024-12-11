@@ -253,23 +253,6 @@ public class CreateTree implements Runnable {
                 path.contains("/.");
     }
 
-    /**
-     * Get the parent directory of a path
-     * 
-     * @param path Path to get parent directory for
-     * @return Parent directory path
-     */
-    private static String getParentDirectory(String path) {
-
-        // Remove leading slash if present
-        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
-
-        int lastSlash = normalizedPath.lastIndexOf('/');
-        System.out.println("lastSlash: " + normalizedPath);
-
-        return lastSlash > 0 ? normalizedPath.substring(0, lastSlash) : "";
-    }
-
     private static byte[] computeTreeContent(List<TreeEntry> entries)
             throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

@@ -1,14 +1,17 @@
 package com.vcs.Utils;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.InflaterInputStream;
 
 import com.vcs.Commands.CreateBlob;
 
@@ -41,7 +44,7 @@ public class DiffTool {
             String filePath = file.toString();
 
             // Check if file is in staging area
-            String stagedHash = stagingArea.getStagedFiles().get(filePath);
+            String stagedHash = stagingArea.getStagedFiles().get(filePath.substring(2));
 
             if (stagedHash == null) {
                 // Unstaged new file
@@ -180,8 +183,40 @@ public class DiffTool {
 
     // Get file contents from object hash
     private List<String> getFileContentFromHash(String hash) throws IOException {
-        Path filePath = Paths.get(OBJECTS_DIR, hash);
-        return Files.readAllLines(filePath);
+        // Construct the file path
+        List<String> fileContent = new ArrayList<>();
+        String dirName = ".vcs/objects/" + hash.substring(0, 2);
+        String fileName = hash.substring(2);
+        File objectFile = new File(dirName, fileName);
+
+        ///
+        /// // Read and decompress the file
+        byte[] decompressedContent = decompressFile(objectFile);
+
+        byte[] content = extractContent(decompressedContent);
+
+        for (String line : new String(content).split("\n")) {
+            fileContent.add(line);
+        }
+
+        return fileContent;
+    }
+
+    private byte[] extractContent(byte[] decompressedContent) {
+        int nullIndex = 0;
+        while (nullIndex < decompressedContent.length && decompressedContent[nullIndex] != 0) {
+            nullIndex++;
+        }
+
+        byte[] content = new byte[decompressedContent.length - nullIndex - 1];
+        System.arraycopy(decompressedContent, nullIndex + 1, content, 0, content.length);
+        return content;
+    }
+
+    private byte[] decompressFile(File objectFile) throws IOException {
+        try (InflaterInputStream inflater = new InflaterInputStream(Files.newInputStream(objectFile.toPath()))) {
+            return inflater.readAllBytes();
+        }
     }
 
     // Print diff between two file contents

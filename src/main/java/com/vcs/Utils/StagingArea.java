@@ -19,6 +19,7 @@ public class StagingArea {
     private static final String OBJECTS_DIR = ".vcs/objects";
     private Map<String, String> stagedEntries;
     private static final String INDEX_FILE = ".vcs/index";
+    private static IgnoreManager ignore = new IgnoreManager();
     private Path projectRoot;
 
     public StagingArea() {
@@ -28,32 +29,26 @@ public class StagingArea {
     }
 
     public void add(Path path) throws IOException, NoSuchAlgorithmException {
-        // Validate file/directory exists and is readable
         if (!Files.exists(path) || !Files.isReadable(path)) {
             throw new IOException("Cannot read path: " + path);
         }
 
-        // Normalize the path to remove any redundant elements
         path = path.toAbsolutePath().normalize();
 
-        // Use Files.walkFileTree for more robust and efficient directory traversal
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                // Skip hidden directories
                 if (isHiddenPath(dir.toString())) {
                     return FileVisitResult.SKIP_SUBTREE;
                 }
 
                 try {
-                    // Create a tree object for the directory
                     String treeHash = CreateTree.createTreeForDirectory(dir);
 
-                    // Add the directory to staged entries using relative path to project root
                     Path relativePath = projectRoot.relativize(dir.toAbsolutePath());
-                    stagedEntries.put(relativePath.toString(), treeHash);
+                    stagedEntries.putIfAbsent(relativePath.toString(), treeHash);
+
                 } catch (NoSuchAlgorithmException e) {
-                    // Log error but continue traversal
                     System.err.println("Error processing directory " + dir + ": " + e.getMessage());
                 }
                 return FileVisitResult.CONTINUE;
@@ -61,8 +56,7 @@ public class StagingArea {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                // Skip hidden files
-                if (isHiddenPath(file.toString())) {
+                if (ignore.isIgnored(projectRoot.relativize(file))) {
                     return FileVisitResult.CONTINUE;
                 }
 
@@ -73,7 +67,8 @@ public class StagingArea {
 
                     // Add to staged entries using relative path to project root
                     Path relativePath = projectRoot.relativize(file.toAbsolutePath());
-                    stagedEntries.put(relativePath.toString(), fileHash);
+                    stagedEntries.putIfAbsent(relativePath.toString(), fileHash);
+
                 } catch (NoSuchAlgorithmException e) {
                     // Log error but continue traversal
                     System.err.println("Error processing file " + file + ": " + e.getMessage());

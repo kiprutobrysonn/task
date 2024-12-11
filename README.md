@@ -1,8 +1,8 @@
-<!-- # VCS (Version Control System) -->
+<!-- # ./run.sh (Version Control System) -->
 
 ## Overview
 
-This is a custom Version Control System (VCS) implemented with core Git-like functionality. The VCS provides essential version control operations to manage your project's source code and track changes.
+This is a custom Version Control System (./run.sh) implemented with core Git-like functionality. The ./run.sh provides essential version control operations to manage your project's source code and track changes.
 
 ## Prerequisites
 
@@ -37,28 +37,28 @@ nano run.sh
 
 ### Basic Operations
 
-- `vcs init`: Initialize a new repository
-- `vcs add`: Stage files for commit
-- `vcs commit`: Create a new commit
-- `vcs status`: Show the current state of the working tree
-- `vcs log`: View commit history
+- `./run.sh init`: Initialize a new repository
+- `./run.sh add`: Stage files for commit
+- `./run.sh commit`: Create a new commit
+- `./run.sh status`: Show the current state of the working tree
+- `./run.sh log`: View commit history
 
 ### Object Management
 
-- `vcs hash-object`: Create a new blob object
-- `vcs cat-file`: Retrieve contents of a blob object
-- `vcs write-tree`: Create a new tree object from staged files
-- `vcs ls-tree`: List contents of a tree object
-- `vcs commit-tree`: Create a new commit object
+- `./run.sh hash-object`: Create a new blob object
+- `./run.sh cat-file`: Retrieve contents of a blob object
+- `./run.sh write-tree`: Create a new tree object from staged files
+- `./run.sh ls-tree`: List contents of a tree object
+- `./run.sh commit-tree`: Create a new commit object
 
 ### Branch Operations
 
-- `vcs branch`: List, create, or delete branches
-- `vcs switch`: Change the current branch
+- `./run.sh branch`: List, create, or delete branches
+- `./run.sh switch`: Change the current branch
 
 ### Comparison
 
-- `vcs diff`: Show changes between commits
+- `./run.sh diff`: Show changes between commits
 
 ## Global Options
 
@@ -69,22 +69,22 @@ nano run.sh
 
 ```bash
 # Initialize a new repository
-vcs init
+./run.sh init
 
 # Add files to the staging area
-vcs add myfile.txt
+./run.sh add myfile.txt
 
 # Commit changes
-vcs commit -m "Initial commit"
+./run.sh commit -m "Initial commit"
 
 # View commit history
-vcs log
+./run.sh log
 
 # Switch branches
-vcs switch new-feature
+./run.sh switch new-feature
 ```
 
-## Create a .vcsignore on the working directory
+## Create .vcsignore on the working directory
 
 - Add files or patterns the way you would on git to ignore them
 
@@ -93,3 +93,6 @@ vcs switch new-feature
 - Ensure Java and Maven are correctly installed
 - Verify the path to the JAR file in `run.sh`
 - Check permissions of the `run.sh` script
+
+-
+-

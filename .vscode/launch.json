@@ -6,6 +6,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "Trial",
+      "request": "launch",
+      "mainClass": "com.vcs.Commands.Trial",
+      "projectName": "task"
+    },
+    {
+      "type": "java",
       "name": "Current File",
       "request": "launch",
       "mainClass": "${file}"

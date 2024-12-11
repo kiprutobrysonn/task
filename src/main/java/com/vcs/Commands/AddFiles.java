@@ -34,7 +34,7 @@ public class AddFiles implements Runnable {
         for (String fileName : fileNames) {
 
             if (ignore.isIgnored(new File(fileName).toPath())) {
-                throw new IOException("The file is in the ignore file");
+                continue;
             }
             Path filePath = Paths.get(fileName);
             stagingArea.add(filePath);

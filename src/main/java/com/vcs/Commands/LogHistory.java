@@ -1,6 +1,8 @@
 package com.vcs.Commands;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,11 +76,26 @@ public class LogHistory implements Runnable {
     }
 
     private String getCurrentCommitHash() throws IOException {
-        Path headFile = Paths.get(".vcs/HEAD");
+
+        Path headFile = Paths.get(".vcs/refs/heads/" + getCurrentBranchName());
         if (!Files.exists(headFile)) {
             throw new IOException("HEAD file not found");
         }
         return new String(Files.readAllBytes(headFile)).trim();
+    }
+
+    public static String getCurrentBranchName() throws IOException {
+        Path gitHeadPath = Paths.get(".vcs", "HEAD");
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(gitHeadPath.toFile()))) {
+            String headContent = reader.readLine();
+
+            if (headContent != null && headContent.startsWith("ref: refs/heads/")) {
+                return headContent.substring("ref: refs/heads/".length());
+            }
+
+            return null;
+        }
     }
 
     private Commit readCommitInfo(String commitHash) {
